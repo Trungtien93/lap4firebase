@@ -7,6 +7,7 @@ import * as Yup from 'yup';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useTheme } from '../../context/ThemeContext'; // 👈 dùng ThemeContext
 
 type Props = NativeStackScreenProps<any>;
 
@@ -34,13 +35,12 @@ const translations = {
 };
 
 const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
+  const { isDarkMode, toggleTheme, theme } = useTheme(); // 🧠 lấy theme từ context
   const [language, setLanguage] = useState<'vi' | 'en'>('vi');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [errorState, setErrorState] = useState('');
 
   const t = translations[language];
-  const theme = isDarkMode ? darkTheme : lightTheme;
 
   const ForgotSchema = Yup.object().shape({
     email: Yup.string().email(t.invalidEmail).required(t.required),
@@ -61,11 +61,14 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.toggleRow}>
         <Text style={[styles.toggleLabel, { color: theme.text }]}>{t.language}</Text>
-        <Switch value={language === 'en'} onValueChange={() => setLanguage(language === 'en' ? 'vi' : 'en')} />
+        <Switch
+          value={language === 'en'}
+          onValueChange={() => setLanguage(language === 'en' ? 'vi' : 'en')}
+        />
       </View>
       <View style={styles.toggleRow}>
         <Text style={[styles.toggleLabel, { color: theme.text }]}>{t.darkMode}</Text>
-        <Switch value={isDarkMode} onValueChange={setIsDarkMode} />
+        <Switch value={isDarkMode} onValueChange={toggleTheme} />
       </View>
 
       <Text style={[styles.title, { color: theme.text }]}>{t.reset}</Text>
@@ -80,17 +83,21 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               placeholder={t.email}
               placeholderTextColor={theme.placeholder}
-              style={[styles.input, {
-                backgroundColor: theme.inputBg,
-                color: theme.inputText,
-                borderColor: theme.border,
-              }]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.inputBg,
+                  color: theme.inputText,
+                  borderColor: theme.border,
+                },
+              ]}
               onChangeText={handleChange('email')}
               onBlur={handleBlur('email')}
               value={values.email}
             />
-            {touched.email && errors.email && <Text style={styles.error}>{errors.email}</Text>}
-
+            {touched.email && errors.email && (
+              <Text style={styles.error}>{errors.email}</Text>
+            )}
             {errorState !== '' && <Text style={styles.error}>{errorState}</Text>}
             {feedback !== '' && <Text style={styles.success}>{feedback}</Text>}
 
@@ -108,24 +115,6 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
       </Formik>
     </View>
   );
-};
-
-const lightTheme = {
-  background: '#f9f9f9',
-  text: '#000',
-  inputBg: '#fff',
-  inputText: '#000',
-  placeholder: '#888',
-  border: '#ccc',
-};
-
-const darkTheme = {
-  background: '#121212',
-  text: '#fff',
-  inputBg: '#1e1e1e',
-  inputText: '#fff',
-  placeholder: '#aaa',
-  border: '#555',
 };
 
 const styles = StyleSheet.create({

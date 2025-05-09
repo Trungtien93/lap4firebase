@@ -8,6 +8,7 @@ import * as Yup from 'yup';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useTheme } from '../../context/ThemeContext';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -37,8 +38,8 @@ const translations = {
 };
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
+  const { isDarkMode, toggleTheme } = useTheme();
   const [language, setLanguage] = useState<'vi' | 'en'>('vi');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [errorState, setErrorState] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -70,7 +71,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       </View>
       <View style={styles.toggleRow}>
         <Text style={[styles.toggleLabel, { color: theme.text }]}>{t.darkMode}</Text>
-        <Switch value={isDarkMode} onValueChange={setIsDarkMode} />
+        <Switch value={isDarkMode} onValueChange={toggleTheme} />
       </View>
 
       <Text style={[styles.title, { color: theme.text }]}>{t.login}</Text>

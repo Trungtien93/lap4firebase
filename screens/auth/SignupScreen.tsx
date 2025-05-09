@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   View, Text, TextInput, Button, StyleSheet, Switch, TouchableOpacity
 } from 'react-native';
@@ -8,6 +8,7 @@ import * as Yup from 'yup';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { ThemeContext } from '../../context/ThemeContext';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -39,8 +40,8 @@ const translations = {
 };
 
 const SignupScreen: React.FC<Props> = ({ navigation }) => {
+  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   const [language, setLanguage] = useState<'vi' | 'en'>('vi');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [errorState, setErrorState] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -56,7 +57,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
       .required(t.required),
   });
 
-  const handleSignup = async (values: { email: string; password: string }) => {
+  const handleSignup = async (values: { email: string; password: string; confirmPassword: string }) => {
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
       navigation.navigate('Login');
@@ -73,7 +74,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
       </View>
       <View style={styles.toggleRow}>
         <Text style={[styles.toggleLabel, { color: theme.text }]}>{t.darkMode}</Text>
-        <Switch value={isDarkMode} onValueChange={setIsDarkMode} />
+        <Switch value={isDarkMode} onValueChange={toggleTheme} />
       </View>
 
       <Text style={[styles.title, { color: theme.text }]}>{t.signup}</Text>
@@ -99,7 +100,6 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
             />
             {touched.email && errors.email && <Text style={styles.error}>{errors.email}</Text>}
 
-            {/* Password 👁 */}
             <View style={[styles.inputWrapper, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
               <TextInput
                 placeholder={t.password}
@@ -116,7 +116,6 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             {touched.password && errors.password && <Text style={styles.error}>{errors.password}</Text>}
 
-            {/* Confirm Password 👁 */}
             <View style={[styles.inputWrapper, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
               <TextInput
                 placeholder={t.confirmPassword}
