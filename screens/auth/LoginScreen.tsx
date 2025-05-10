@@ -19,6 +19,7 @@ import { auth } from '../../firebaseConfig';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTheme } from '../../context/ThemeContext';
 
+
 type Props = NativeStackScreenProps<any>;
 
 const translations = {

@@ -16,6 +16,7 @@ const RootNavigator = () => {
     <NavigationContainer>
   {user ? (
     <>
+    
       {/* @ts-ignore */}
       <Stack.Navigator>
         <Stack.Screen name="Home" component={HomeScreen} />
