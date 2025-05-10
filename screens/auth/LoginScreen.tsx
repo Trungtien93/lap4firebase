@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Button, StyleSheet, Switch, TouchableOpacity
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Switch,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Animated,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Formik } from 'formik';
@@ -42,6 +51,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [language, setLanguage] = useState<'vi' | 'en'>('vi');
   const [errorState, setErrorState] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const fadeAnim = new Animated.Value(0);
 
   const t = translations[language];
   const theme = isDarkMode ? darkTheme : lightTheme;
@@ -59,158 +69,234 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  // Run fade-in animation
+  Animated.timing(fadeAnim, {
+    toValue: 1,
+    duration: 600,
+    useNativeDriver: true,
+  }).start();
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Toggle bar */}
-      <View style={styles.toggleRow}>
-        <Text style={[styles.toggleLabel, { color: theme.text }]}>{t.language}</Text>
-        <Switch
-          value={language === 'en'}
-          onValueChange={() => setLanguage(language === 'en' ? 'vi' : 'en')}
-        />
-      </View>
-      <View style={styles.toggleRow}>
-        <Text style={[styles.toggleLabel, { color: theme.text }]}>{t.darkMode}</Text>
-        <Switch value={isDarkMode} onValueChange={toggleTheme} />
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Animated.View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow, opacity: fadeAnim }]}>
+          <Text style={[styles.title, { color: theme.text }]}>{t.login}</Text>
 
-      <Text style={[styles.title, { color: theme.text }]}>{t.login}</Text>
+          <ToggleSwitch
+            label={t.language}
+            value={language === 'en'}
+            onValueChange={() => setLanguage(language === 'en' ? 'vi' : 'en')}
+            theme={theme}
+          />
+          <ToggleSwitch
+            label={t.darkMode}
+            value={isDarkMode}
+            onValueChange={toggleTheme}
+            theme={theme}
+          />
 
-      <Formik
-        initialValues={{ email: '', password: '' }}
-        validationSchema={LoginSchema}
-        onSubmit={handleLogin}
-      >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-          <View>
-            <TextInput
-              placeholder={t.email}
-              placeholderTextColor={theme.placeholder}
-              style={[styles.input, {
-                backgroundColor: theme.inputBg,
-                color: theme.inputText,
-                borderColor: theme.border,
-              }]}
-              onChangeText={handleChange('email')}
-              onBlur={handleBlur('email')}
-              value={values.email}
-            />
-            {touched.email && errors.email && <Text style={styles.error}>{errors.email}</Text>}
-
-            {/* Mật khẩu có icon 👁 */}
-            <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.inputBg }]}>
-              <TextInput
-                placeholder={t.password}
-                secureTextEntry={!showPassword}
-                placeholderTextColor={theme.placeholder}
-                style={[styles.inputFlex, { color: theme.inputText }]}
-                onChangeText={handleChange('password')}
-                onBlur={handleBlur('password')}
-                value={values.password}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                  size={22}
-                  color={theme.placeholder}
+          <Formik
+            initialValues={{ email: '', password: '' }}
+            validationSchema={LoginSchema}
+            onSubmit={handleLogin}
+          >
+            {({
+              handleChange,
+              handleBlur,
+              handleSubmit,
+              values,
+              errors,
+              touched,
+            }) => (
+              <View>
+                <InputField
+                  icon="mail"
+                  placeholder={t.email}
+                  value={values.email}
+                  onChangeText={handleChange('email')}
+                  onBlur={handleBlur('email')}
+                  error={touched.email && errors.email}
+                  theme={theme}
                 />
-              </TouchableOpacity>
-            </View>
-            {touched.password && errors.password && <Text style={styles.error}>{errors.password}</Text>}
 
-            {errorState !== '' && <Text style={styles.error}>{errorState}</Text>}
+                <InputField
+                  icon="lock-closed"
+                  placeholder={t.password}
+                  value={values.password}
+                  onChangeText={handleChange('password')}
+                  onBlur={handleBlur('password')}
+                  error={touched.password && errors.password}
+                  secureTextEntry={!showPassword}
+                  theme={theme}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                      <Ionicons
+                        name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                        size={22}
+                        color={theme.placeholder}
+                      />
+                    </TouchableOpacity>
+                  }
+                />
 
-            <View style={styles.button}>
-              <Button title={t.login} onPress={() => handleSubmit()} color="#007bff" />
-            </View>
+                {errorState !== '' && <Text style={styles.error}>{errorState}</Text>}
 
-            <View style={styles.linkContainer}>
-              <Text style={styles.link} onPress={() => navigation.navigate('Signup')}>
-                {t.signup}
-              </Text>
-              <Text style={styles.link} onPress={() => navigation.navigate('ForgotPassword')}>
-                {t.forgot}
-              </Text>
-            </View>
-          </View>
-        )}
-      </Formik>
-    </View>
+                <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={() => handleSubmit()}>
+                  <Text style={styles.buttonText}>{t.login}</Text>
+                </TouchableOpacity>
+
+                <View style={styles.linkContainer}>
+                  <Text style={[styles.link, { color: theme.text }]} onPress={() => navigation.navigate('Signup')}>
+                    {t.signup}
+                  </Text>
+                  <Text style={[styles.link, { color: theme.text }]} onPress={() => navigation.navigate('ForgotPassword')}>
+                    {t.forgot}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Formik>
+        </Animated.View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
+const ToggleSwitch = ({ label, value, onValueChange, theme }: any) => (
+  <View style={styles.toggleRow}>
+    <Text style={[styles.toggleLabel, { color: theme.text }]}>{label}</Text>
+    <Switch value={value} onValueChange={onValueChange} />
+  </View>
+);
+
+const InputField = ({
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  onBlur,
+  error,
+  secureTextEntry = false,
+  theme,
+  rightIcon,
+}: any) => (
+  <View style={{ marginBottom: 18 }}>
+    <View style={[
+      styles.inputWrapper,
+      {
+        borderColor: error ? 'red' : theme.border,
+        backgroundColor: theme.inputBg,
+      }
+    ]}>
+      <Ionicons name={icon} size={20} color={theme.placeholder} style={{ marginRight: 8 }} />
+      <TextInput
+        placeholder={placeholder}
+        placeholderTextColor={theme.placeholder}
+        style={[styles.input, { color: theme.inputText }]}
+        value={value}
+        onChangeText={onChangeText}
+        onBlur={onBlur}
+        secureTextEntry={secureTextEntry}
+      />
+      {rightIcon}
+    </View>
+    {error && <Text style={styles.error}>{error}</Text>}
+  </View>
+);
+
 const lightTheme = {
-  background: '#f9f9f9',
-  text: '#000',
-  inputBg: '#fff',
+  background: '#eaf0f6',
+  card: '#fff',
+  text: '#111',
+  inputBg: '#f2f2f2',
   inputText: '#000',
   placeholder: '#888',
   border: '#ccc',
+  shadow: '#000',
+  primary: '#007bff',
 };
 
 const darkTheme = {
   background: '#121212',
+  card: '#1e1e1e',
   text: '#fff',
-  inputBg: '#1e1e1e',
+  inputBg: '#2a2a2a',
   inputText: '#fff',
   placeholder: '#aaa',
-  border: '#555',
+  border: '#444',
+  shadow: '#000',
+  primary: '#1e90ff',
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
     padding: 24,
+  },
+  card: {
+    borderRadius: 16,
+    padding: 24,
+    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 24,
   },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   toggleLabel: {
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
+    fontSize: 16,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 10,
-    paddingHorizontal: 10,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  inputFlex: {
+  input: {
     flex: 1,
-    paddingVertical: 12,
+    fontSize: 16,
   },
   error: {
     color: 'red',
-    marginBottom: 10,
-    marginLeft: 4,
+    fontSize: 13,
+    marginTop: 4,
+    marginLeft: 6,
   },
   button: {
-    marginTop: 10,
-    marginBottom: 20,
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginTop: 12,
+    marginBottom: 18,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+    textAlign: 'center',
   },
   linkContainer: {
     alignItems: 'center',
   },
   link: {
-    color: '#007bff',
-    marginTop: 10,
     fontSize: 14,
+    marginTop: 8,
   },
 });
 

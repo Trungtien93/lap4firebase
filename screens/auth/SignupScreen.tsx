@@ -1,6 +1,16 @@
-import React, { useContext, useState } from 'react';
+// SignupScreen.tsx
+import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Button, StyleSheet, Switch, TouchableOpacity
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Switch,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Animated,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Formik } from 'formik';
@@ -8,7 +18,7 @@ import * as Yup from 'yup';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ThemeContext } from '../../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -16,212 +26,236 @@ const translations = {
   vi: {
     email: 'Email',
     password: 'Mật khẩu',
-    confirmPassword: 'Xác nhận mật khẩu',
+    confirm: 'Xác nhận mật khẩu',
     signup: 'Đăng ký',
-    login: 'Quay lại đăng nhập',
+    login: 'Đã có tài khoản? Đăng nhập',
     invalidEmail: 'Email không hợp lệ',
     required: 'Bắt buộc',
-    passwordMismatch: 'Mật khẩu không khớp',
+    mismatch: 'Mật khẩu không khớp',
     darkMode: 'Chế độ tối',
     language: 'Ngôn ngữ',
   },
   en: {
     email: 'Email',
     password: 'Password',
-    confirmPassword: 'Confirm password',
+    confirm: 'Confirm Password',
     signup: 'Sign up',
-    login: 'Back to Login',
+    login: 'Already have an account? Login',
     invalidEmail: 'Invalid email',
     required: 'Required',
-    passwordMismatch: 'Passwords do not match',
+    mismatch: 'Passwords do not match',
     darkMode: 'Dark Mode',
     language: 'Language',
   },
 };
 
 const SignupScreen: React.FC<Props> = ({ navigation }) => {
-  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+  const { isDarkMode, toggleTheme } = useTheme();
   const [language, setLanguage] = useState<'vi' | 'en'>('vi');
   const [errorState, setErrorState] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const fadeAnim = new Animated.Value(0);
 
   const t = translations[language];
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   const SignupSchema = Yup.object().shape({
     email: Yup.string().email(t.invalidEmail).required(t.required),
-    password: Yup.string().min(6, t.required).required(t.required),
-    confirmPassword: Yup.string()
-      .oneOf([Yup.ref('password')], t.passwordMismatch)
+    password: Yup.string().required(t.required),
+    confirm: Yup.string()
+      .oneOf([Yup.ref('password')], t.mismatch)
       .required(t.required),
   });
 
-  const handleSignup = async (values: { email: string; password: string; confirmPassword: string }) => {
+  const handleSignup = async (values: { email: string; password: string }) => {
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
-      navigation.navigate('Login');
     } catch (error: any) {
       setErrorState(error.message);
     }
   };
 
+  Animated.timing(fadeAnim, {
+    toValue: 1,
+    duration: 600,
+    useNativeDriver: true,
+  }).start();
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.toggleRow}>
-        <Text style={[styles.toggleLabel, { color: theme.text }]}>{t.language}</Text>
-        <Switch value={language === 'en'} onValueChange={() => setLanguage(language === 'en' ? 'vi' : 'en')} />
-      </View>
-      <View style={styles.toggleRow}>
-        <Text style={[styles.toggleLabel, { color: theme.text }]}>{t.darkMode}</Text>
-        <Switch value={isDarkMode} onValueChange={toggleTheme} />
-      </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Animated.View style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow, opacity: fadeAnim }]}>
+          <Text style={[styles.title, { color: theme.text }]}>{t.signup}</Text>
 
-      <Text style={[styles.title, { color: theme.text }]}>{t.signup}</Text>
+          <ToggleSwitch label={t.language} value={language === 'en'} onValueChange={() => setLanguage(language === 'en' ? 'vi' : 'en')} theme={theme} />
+          <ToggleSwitch label={t.darkMode} value={isDarkMode} onValueChange={toggleTheme} theme={theme} />
 
-      <Formik
-        initialValues={{ email: '', password: '', confirmPassword: '' }}
-        validationSchema={SignupSchema}
-        onSubmit={handleSignup}
-      >
-        {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-          <View>
-            <TextInput
-              placeholder={t.email}
-              placeholderTextColor={theme.placeholder}
-              style={[styles.input, {
-                backgroundColor: theme.inputBg,
-                color: theme.inputText,
-                borderColor: theme.border,
-              }]}
-              onChangeText={handleChange('email')}
-              onBlur={handleBlur('email')}
-              value={values.email}
-            />
-            {touched.email && errors.email && <Text style={styles.error}>{errors.email}</Text>}
+          <Formik
+            initialValues={{ email: '', password: '', confirm: '' }}
+            validationSchema={SignupSchema}
+            onSubmit={handleSignup}
+          >
+            {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
+              <View>
+                <InputField icon="mail" placeholder={t.email} value={values.email} onChangeText={handleChange('email')} onBlur={handleBlur('email')} error={touched.email && errors.email} theme={theme} />
+                <InputField icon="lock-closed" placeholder={t.password} value={values.password} onChangeText={handleChange('password')} onBlur={handleBlur('password')} error={touched.password && errors.password} secureTextEntry={!showPassword} theme={theme}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                      <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={22} color={theme.placeholder} />
+                    </TouchableOpacity>
+                  }
+                />
+                <InputField icon="lock-closed" placeholder={t.confirm} value={values.confirm} onChangeText={handleChange('confirm')} onBlur={handleBlur('confirm')} error={touched.confirm && errors.confirm} secureTextEntry={!showPassword} theme={theme} />
 
-            <View style={[styles.inputWrapper, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-              <TextInput
-                placeholder={t.password}
-                secureTextEntry={!showPassword}
-                placeholderTextColor={theme.placeholder}
-                style={[styles.inputFlex, { color: theme.inputText }]}
-                onChangeText={handleChange('password')}
-                onBlur={handleBlur('password')}
-                value={values.password}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={22} color={theme.placeholder} />
-              </TouchableOpacity>
-            </View>
-            {touched.password && errors.password && <Text style={styles.error}>{errors.password}</Text>}
+                {errorState !== '' && <Text style={styles.error}>{errorState}</Text>}
 
-            <View style={[styles.inputWrapper, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-              <TextInput
-                placeholder={t.confirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                placeholderTextColor={theme.placeholder}
-                style={[styles.inputFlex, { color: theme.inputText }]}
-                onChangeText={handleChange('confirmPassword')}
-                onBlur={handleBlur('confirmPassword')}
-                value={values.confirmPassword}
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                <Ionicons name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} size={22} color={theme.placeholder} />
-              </TouchableOpacity>
-            </View>
-            {touched.confirmPassword && errors.confirmPassword && <Text style={styles.error}>{errors.confirmPassword}</Text>}
+                <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={() => handleSubmit()}>
+                  <Text style={styles.buttonText}>{t.signup}</Text>
+                </TouchableOpacity>
 
-            {errorState !== '' && <Text style={styles.error}>{errorState}</Text>}
-
-            <View style={styles.button}>
-              <Button title={t.signup} onPress={() => handleSubmit()} color="#007bff" />
-            </View>
-
-            <View style={styles.linkContainer}>
-              <Text style={styles.link} onPress={() => navigation.navigate('Login')}>
-                {t.login}
-              </Text>
-            </View>
-          </View>
-        )}
-      </Formik>
-    </View>
+                <View style={styles.linkContainer}>
+                  <Text style={[styles.link, { color: theme.text }]} onPress={() => navigation.navigate('Login')}>
+                    {t.login}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Formik>
+        </Animated.View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
+const ToggleSwitch = ({ label, value, onValueChange, theme }: any) => (
+  <View style={styles.toggleRow}>
+    <Text style={[styles.toggleLabel, { color: theme.text }]}>{label}</Text>
+    <Switch value={value} onValueChange={onValueChange} />
+  </View>
+);
+
+const InputField = ({
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  onBlur,
+  error,
+  secureTextEntry = false,
+  theme,
+  rightIcon,
+}: any) => (
+  <View style={{ marginBottom: 18 }}>
+    <View style={[
+      styles.inputWrapper,
+      {
+        borderColor: error ? 'red' : theme.border,
+        backgroundColor: theme.inputBg,
+      }
+    ]}>
+      <Ionicons name={icon} size={20} color={theme.placeholder} style={{ marginRight: 8 }} />
+      <TextInput
+        placeholder={placeholder}
+        placeholderTextColor={theme.placeholder}
+        style={[styles.input, { color: theme.inputText }]}
+        value={value}
+        onChangeText={onChangeText}
+        onBlur={onBlur}
+        secureTextEntry={secureTextEntry}
+      />
+      {rightIcon}
+    </View>
+    {error && <Text style={styles.error}>{error}</Text>}
+  </View>
+);
+
 const lightTheme = {
-  background: '#f9f9f9',
-  text: '#000',
-  inputBg: '#fff',
+  background: '#eaf0f6',
+  card: '#fff',
+  text: '#111',
+  inputBg: '#f2f2f2',
   inputText: '#000',
   placeholder: '#888',
   border: '#ccc',
+  shadow: '#000',
+  primary: '#28a745',
 };
 
 const darkTheme = {
   background: '#121212',
+  card: '#1e1e1e',
   text: '#fff',
-  inputBg: '#1e1e1e',
+  inputBg: '#2a2a2a',
   inputText: '#fff',
   placeholder: '#aaa',
-  border: '#555',
+  border: '#444',
+  shadow: '#000',
+  primary: '#28a745',
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  card: {
+    borderRadius: 16,
     padding: 24,
+    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 24,
   },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   toggleLabel: {
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
+    fontSize: 16,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 10,
-    paddingHorizontal: 10,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  inputFlex: {
+  input: {
     flex: 1,
-    paddingVertical: 12,
+    fontSize: 16,
   },
   error: {
     color: 'red',
-    marginBottom: 10,
-    marginLeft: 4,
+    fontSize: 13,
+    marginTop: 4,
+    marginLeft: 6,
   },
   button: {
-    marginTop: 10,
-    marginBottom: 20,
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginTop: 12,
+    marginBottom: 18,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+    textAlign: 'center',
   },
   linkContainer: {
     alignItems: 'center',
   },
   link: {
-    color: '#007bff',
-    marginTop: 10,
     fontSize: 14,
+    marginTop: 8,
   },
 });
 
