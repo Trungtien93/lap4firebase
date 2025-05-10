@@ -37,6 +37,7 @@ const HomeScreen = () => {
       titleRequired: 'Tiêu đề không được để trống!',
       contentRequired: 'Nội dung không được để trống!',
     },
+    
     en: {
       title: 'Title',
       content: 'Content',
