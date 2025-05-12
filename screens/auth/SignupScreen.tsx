@@ -20,10 +20,7 @@ import { auth } from '../../firebaseConfig';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTheme } from '../../context/ThemeContext';
 
-<<<<<<< HEAD
 
-=======
->>>>>>> e193fd014d97d193c2fc82c6f98513d705ce651c
 type Props = NativeStackScreenProps<any>;
 
 const translations = {
@@ -71,13 +68,10 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
       .required(t.required),
   });
 
-<<<<<<< HEAD
   const handleSignup = async (values: {
-    [x: string]: any; email: string; password: string 
+    confirm: any; email: string; password: string 
 }) => {
-=======
-  const handleSignup = async (values: { email: string; password: string }) => {
->>>>>>> e193fd014d97d193c2fc82c6f98513d705ce651c
+
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
     } catch (error: any) {
