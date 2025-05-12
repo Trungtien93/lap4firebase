@@ -1,312 +1,274 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Modal, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useTheme } from '../context/ThemeContext';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 const HomeScreen = () => {
-  const [noteData, setNoteData] = useState({
-    title: '',
-    content: '',
-    priority: 'Bình thường', // Mức độ ưu tiên
-    status: 'Chưa làm', // Trạng thái
-    deadline: new Date(), // Ngày deadline
+  const [userData, setUserData] = useState({
+    fullName: '',
+    age: '',
+    gender: '',
+    avatarUrl: '',
   });
-  const [savedNote, setSavedNote] = useState(null); // Lưu ghi chú đã lưu
-  const [showPriorityModal, setShowPriorityModal] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const { isDarkMode, toggleTheme, theme } = useTheme();
-  const [language, setLanguage] = useState('vi');
 
-  const toggleLanguage = () => setLanguage((prev) => (prev === 'vi' ? 'en' : 'vi'));
+  const { theme } = useTheme();
 
-  const translations = {
-    vi: {
-      title: 'Tiêu đề',
-      content: 'Nội dung',
-      priority: 'Mức độ ưu tiên',
-      status: 'Trạng thái',
-      save: 'Lưu ghi chú',
-      logout: 'Đăng xuất',
-      deadline: 'Ngày deadline',
-      successMessage: 'Đã lưu ghi chú thành công!',
-      failureMessage: 'Lỗi khi lưu ghi chú!',
-      titleRequired: 'Tiêu đề không được để trống!',
-      contentRequired: 'Nội dung không được để trống!',
-    },
-    
-    en: {
-      title: 'Title',
-      content: 'Content',
-      priority: 'Priority',
-      status: 'Status',
-      save: 'Save Note',
-      logout: 'Logout',
-      deadline: 'Deadline Date',
-      successMessage: 'Note saved successfully!',
-      failureMessage: 'Failed to save note!',
-      titleRequired: 'Title cannot be empty!',
-      contentRequired: 'Content cannot be empty!',
-    },
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled) {
+        const uri = result.assets[0].uri;
+        const fileName = uri.split('/').pop(); // Lấy tên tệp từ URI
+        const localUri = FileSystem.documentDirectory + fileName;
+
+        await FileSystem.copyAsync({ from: uri, to: localUri });
+        setUserData((prev) => ({ ...prev, avatarUrl: localUri }));
+        await AsyncStorage.setItem('avatarUri', localUri);
+      }
+    } catch (err) {
+      console.error('Image picking failed:', err);
+      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại!');
+    }
   };
 
-  const t = translations[language];
+  const handleSave = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Lỗi', 'Người dùng chưa đăng nhập!');
+        return;
+      }
+
+      if (!userData.age || parseInt(userData.age, 10) < 1 || parseInt(userData.age, 10) > 150) {
+        Alert.alert('Lỗi', 'Tuổi không hợp lệ! Vui lòng nhập tuổi từ 1 đến 150.');
+        return;
+      }
+
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, {
+        fullName: userData.fullName,
+        age: userData.age,
+        gender: userData.gender,
+        avatarUrl: userData.avatarUrl,
+      });
+
+      Alert.alert('✅ Đã lưu thông tin thành công!');
+    } catch (err) {
+      console.error('Save error:', err);
+      Alert.alert('❌ Lỗi khi lưu thông tin!');
+    }
+  };
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      Alert.alert('✅ Đăng xuất thành công!');
     } catch (err) {
       Alert.alert('Lỗi', 'Không thể đăng xuất!');
     }
   };
 
-  const handleSave = async () => {
-    // Kiểm tra nếu Tiêu đề hoặc Nội dung trống
-    if (!noteData.title) {
-      Alert.alert('❌', t.titleRequired);
-      return;
-    }
-
-    if (!noteData.content) {
-      Alert.alert('❌', t.contentRequired);
-      return;
-    }
-
-    try {
+  useEffect(() => {
+    const loadUserData = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
-        noteTitle: noteData.title,
-        noteContent: noteData.content,
-        notePriority: noteData.priority,
-        noteStatus: noteData.status,
-        noteDeadline: noteData.deadline,
-      });
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const snap = await getDoc(userRef);
 
-      setSavedNote(noteData); // Lưu ghi chú vào state để hiển thị
-      Alert.alert('✅', t.successMessage); // Hiển thị thông báo thành công
-    } catch (err) {
-      console.error('Save error:', err);
-      Alert.alert('❌', t.failureMessage); // Hiển thị thông báo lỗi
-    }
-  };
+        if (snap.exists()) {
+          const data = snap.data();
+          setUserData({
+            fullName: data.fullName || '',
+            age: data.age || '',
+            gender: data.gender || '',
+            avatarUrl: data.avatarUrl || '',
+          });
+        }
 
-  const onChangeDate = (event, selectedDate) => {
-    const currentDate = selectedDate || noteData.deadline;
-    setNoteData({ ...noteData, deadline: currentDate });
-  };
-
-  // Kiểm tra nếu có thể lưu ghi chú
-  const canSave = noteData.title.trim() !== '' && noteData.content.trim() !== '';
-
-  function setShowDatePicker(arg0: boolean): void {
-    throw new Error('Function not implemented.');
-  }
+        // Tải avatar từ AsyncStorage
+        const localAvatar = await AsyncStorage.getItem('avatarUri');
+        if (localAvatar) {
+          setUserData((prev) => ({ ...prev, avatarUrl: localAvatar }));
+        }
+      } catch (error) {
+        console.error('Load user data failed:', error);
+      }
+    };
+    loadUserData();
+  }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Thông tin cá nhân</Text>
+
+      <Image
+        source={
+          userData.avatarUrl
+            ? { uri: userData.avatarUrl }
+            : require('../assets/avatar-placeholder.png')
+        }
+        style={styles.avatar}
+      />
+      <TouchableOpacity onPress={pickImage}>
+        <Text style={[styles.pickText, { color: theme.text }]}>📸 Đổi ảnh đại diện</Text>
+      </TouchableOpacity>
+
       <View style={styles.inputContainer}>
-        <Text style={[styles.inputLabel, { color: theme.text }]}>{t.title}</Text>
+        <Text style={[styles.inputLabel, { color: theme.text }]}>Họ tên</Text>
         <TextInput
-          placeholder={t.title}
+          placeholder="Nhập họ tên"
           placeholderTextColor={theme.placeholder}
-          value={noteData.title}
-          onChangeText={(text) => setNoteData({ ...noteData, title: text })}
+          value={userData.fullName}
+          onChangeText={(text) => setUserData({ ...userData, fullName: text })}
           style={[styles.input, { backgroundColor: theme.inputBg, color: theme.inputText, borderColor: theme.border }]}
         />
-        {!noteData.title && <Text style={styles.errorText}>{t.titleRequired}</Text>}
       </View>
 
       <View style={styles.inputContainer}>
-        <Text style={[styles.inputLabel, { color: theme.text }]}>{t.content}</Text>
+        <Text style={[styles.inputLabel, { color: theme.text }]}>Tuổi</Text>
         <TextInput
-          placeholder={t.content}
+          placeholder="Nhập tuổi"
           placeholderTextColor={theme.placeholder}
-          value={noteData.content}
-          onChangeText={(text) => setNoteData({ ...noteData, content: text })}
+          keyboardType="numeric"
+          value={userData.age}
+          onChangeText={(text) => setUserData({ ...userData, age: text })}
           style={[styles.input, { backgroundColor: theme.inputBg, color: theme.inputText, borderColor: theme.border }]}
         />
-        {!noteData.content && <Text style={styles.errorText}>{t.contentRequired}</Text>}
       </View>
 
-      {/* Mức độ ưu tiên */}
-      <TouchableOpacity
-        onPress={() => setShowPriorityModal(true)}
-        style={[styles.inputContainer, { borderColor: theme.border }]}>
-        <Text style={[styles.inputLabel, { color: theme.text }]}>{t.priority}</Text>
-        <Text style={[styles.input, { color: theme.inputText }]}>{noteData.priority}</Text>
-      </TouchableOpacity>
-
-      {/* Trạng thái */}
-      <TouchableOpacity
-        onPress={() => setShowStatusModal(true)}
-        style={[styles.inputContainer, { borderColor: theme.border }]}>
-        <Text style={[styles.inputLabel, { color: theme.text }]}>{t.status}</Text>
-        <Text style={[styles.input, { color: theme.inputText }]}>{noteData.status}</Text>
-      </TouchableOpacity>
-
-      {/* Chọn ngày deadline */}
       <View style={styles.inputContainer}>
-        <Text style={[styles.inputLabel, { color: theme.text }]}>{t.deadline}</Text>
-        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-          <Text style={[styles.input, { color: theme.inputText, borderColor: theme.border }]}>
-            {noteData.deadline.toLocaleDateString()}
-          </Text>
-        </TouchableOpacity>
+        <Text style={[styles.inputLabel, { color: theme.text }]}>Giới tính</Text>
+        <View style={styles.genderRow}>
+          {['Nam', 'Nữ'].map((g) => (
+            <TouchableOpacity
+              key={g}
+              style={[styles.genderButton, userData.gender === g && styles.genderSelected]}
+              onPress={() => setUserData({ ...userData, gender: g })}
+            >
+              <Text style={[styles.genderText, userData.gender === g && styles.genderSelectedText]}>
+                {g}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      {/* Modal chọn mức độ ưu tiên */}
-      <Modal visible={showPriorityModal} transparent={true} animationType="fade">
-        <View style={styles.modalBackground}>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity onPress={() => setNoteData({ ...noteData, priority: 'Bình thường' })}>
-              <Text style={styles.modalText}>Bình thường</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setNoteData({ ...noteData, priority: 'Gấp' })}>
-              <Text style={styles.modalText}>Gấp</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setNoteData({ ...noteData, priority: 'Nguy hiểm' })}>
-              <Text style={styles.modalText}>Nguy hiểm</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowPriorityModal(false)}>
-              <Text style={styles.closeModal}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal chọn trạng thái */}
-      <Modal visible={showStatusModal} transparent={true} animationType="fade">
-        <View style={styles.modalBackground}>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity onPress={() => setNoteData({ ...noteData, status: 'Đã làm' })}>
-              <Text style={styles.modalText}>Đã làm</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setNoteData({ ...noteData, status: 'Đang làm' })}>
-              <Text style={styles.modalText}>Đang làm</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setNoteData({ ...noteData, status: 'Chưa làm' })}>
-              <Text style={styles.modalText}>Chưa làm</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowStatusModal(false)}>
-              <Text style={styles.closeModal}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Lưu ghi chú */}
-      {canSave && (
-        <TouchableOpacity onPress={handleSave} style={[styles.button, { backgroundColor: theme.button }]}>
-          <Text style={[styles.buttonText, { color: theme.buttonText }]}>{t.save}</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Hiển thị thông tin ghi chú đã lưu */}
-      {savedNote && (
-        <View style={styles.savedNoteContainer}>
-          <Text style={[styles.savedNoteText, { color: theme.text }]}>
-            Tiêu đề: {savedNote.title}
-          </Text>
-          <Text style={[styles.savedNoteText, { color: theme.text }]}>
-            Nội dung: {savedNote.content}
-          </Text>
-          <Text style={[styles.savedNoteText, { color: theme.text }]}>
-            Mức độ ưu tiên: {savedNote.priority}
-          </Text>
-          <Text style={[styles.savedNoteText, { color: theme.text }]}>
-            Trạng thái: {savedNote.status}
-          </Text>
-          <Text style={[styles.savedNoteText, { color: theme.text }]}>
-            Deadline: {savedNote.deadline.toLocaleDateString()}
-          </Text>
-        </View>
-      )}
-
-      {/* Đăng xuất */}
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-        <Text style={styles.logoutText}>{t.logout}</Text>
+      <TouchableOpacity onPress={handleSave} style={[styles.button, { backgroundColor: theme.button }]}>
+        <Text style={[styles.buttonText, { color: theme.buttonText }]}>Lưu thông tin</Text>
       </TouchableOpacity>
-    </View>
+
+      <TouchableOpacity onPress={handleLogout} style={[styles.logoutButton]}>
+        <Text style={styles.logoutButtonText}>Đăng xuất</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     padding: 20,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 16,
+  },
+  pickText: {
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 16,
   },
   inputContainer: {
-    marginBottom: 15,
+    width: '100%',
+    marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    marginBottom: 6,
+    fontSize: 15,
+    fontWeight: '500',
   },
   input: {
-    height: 40,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    fontSize: 16,
-    marginTop: 5,
+    padding: 10,
+    borderRadius: 8,
+    fontSize: 15,
   },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginTop: 5,
+  genderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+  },
+  genderButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#f0f0f0',
+  },
+  genderSelected: {
+    backgroundColor: '#007BFF',
+    borderColor: '#007BFF',
+  },
+  genderText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  genderSelectedText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   button: {
-    height: 50,
-    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
-    borderRadius: 5,
+    marginBottom: 12,
   },
   buttonText: {
-    fontSize: 18,
     fontWeight: '600',
-  },
-  savedNoteContainer: {
-    marginTop: 20,
-  },
-  savedNoteText: {
     fontSize: 16,
-    marginVertical: 4,
-  },
-  modalBackground: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContainer: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-  },
-  modalText: {
-    fontSize: 18,
-    marginVertical: 5,
-  },
-  closeModal: {
-    fontSize: 18,
-    color: 'red',
-    marginTop: 10,
   },
   logoutButton: {
-    marginTop: 20,
-    padding: 10,
     backgroundColor: 'red',
-    borderRadius: 5,
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
+    marginTop: 20,
   },
-  logoutText: {
+  logoutButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 
